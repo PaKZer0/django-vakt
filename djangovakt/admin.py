@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+__author__ = 'ffuentes'
+
 import vakt
 
 from django import forms

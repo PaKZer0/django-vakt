@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+__author__ = 'ffuentes'
+
 import threading
 import logging
 import vakt.rules
@@ -54,20 +57,50 @@ class DjangoStorage(Storage):
         qs = DjPolicy.objects.all()
 
         if isinstance(checker, RulesChecker):
-            # extract action from inquiry
+            # extract action, context, resource and subject from inquiry
+            inquiry_resource = inquiry.resource
             inquiry_action = inquiry.action
+            inquiry_subject = inquiry.subject
+            inquiry_context = inquiry.context
 
             # extract all action rules in dictionary with policy uuid
             match_policies_uids = []
 
             for dbpolicy in self.get_all():
+                resource = dbpolicy.resource
                 actions = dbpolicy.actions
+                subject = dbpolicy.subject
+                context = dbpolicy.context
+
                 insert_uid = True
 
-                for rule in actions:
-                    # if one of the rules doesn't fit remove uuid from matching_policies
-                    if not rule.satisfied(inquiry_action):
-                        insert_uid = False
+                # filter resource
+                if insert_uid:
+                    for rule in resource:
+                        # if one of the rules doesn't fit remove uuid from matching_policies
+                        if not rule.satisfied(inquiry_resource):
+                            insert_uid = False
+
+                # filter actions
+                if insert_uid:
+                    for rule in actions:
+                        # if one of the rules doesn't fit remove uuid from matching_policies
+                        if not rule.satisfied(inquiry_action):
+                            insert_uid = False
+
+                # filter actions
+                if insert_uid:
+                    for rule in subject:
+                        # if one of the rules doesn't fit remove uuid from matching_policies
+                        if not rule.satisfied(inquiry_subject):
+                            insert_uid = False
+
+                # filter actions
+                if insert_uid:
+                    for rule in context:
+                        # if one of the rules doesn't fit remove uuid from matching_policies
+                        if not rule.satisfied(inquiry_context):
+                            insert_uid = False
 
                 if insert_uid:
                     match_policies_uids.append(dbpolicy.uid)
