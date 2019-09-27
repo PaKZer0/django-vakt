@@ -15,14 +15,18 @@ from vakt.exceptions import PolicyExistsError
 log = logging.getLogger(__name__)
 
 class DjangoStorage(Storage):
-    def __init__(self):
+    def __init__(self, djpolicy_model=None):
         self.lock = threading.Lock()
+        if not djpolicy_model:
+            djpolicy_model = DjPolicy
+
+        self.djpolicy = djpolicy_model
 
     def add(self, policy):
         uid = policy.uid
 
         # check if it's already stored and raise exception if so
-        existent_policy = DjPolicy.objects.filter(uid=uid)
+        existent_policy = self.djpolicy.objects.filter(uid=uid)
         if existent_policy:
             raise PolicyExistsError(policy.uid)
 
@@ -34,13 +38,13 @@ class DjangoStorage(Storage):
 
     def get(self, uid):
         try:
-            return DjangoStorage.__prepare_from_djmodel(DjPolicy.objects.get(uid=uid))
+            return DjangoStorage.__prepare_from_djmodel(self.djpolicy.objects.get(uid=uid))
         except ObjectDoesNotExist:
             return None
 
     def get_all(self, limit=0, offset=0):
         self._check_limit_and_offset(limit, offset)
-        count = DjPolicy.objects.count()
+        count = self.djpolicy.objects.count()
 
         if offset > count:
             return []
@@ -48,13 +52,13 @@ class DjangoStorage(Storage):
         if limit == 0:
             limit = count
 
-        qs = DjPolicy.objects.all()[offset:offset+limit]
+        qs = self.djpolicy.objects.all()[offset:offset+limit]
 
         return [ DjangoStorage.__prepare_from_djmodel(djpol) for djpol in qs ]
 
     def find_for_inquiry(self, inquiry, checker=None):
         # worst case return all
-        qs = DjPolicy.objects.all()
+        qs = self.djpolicy.objects.all()
 
         if isinstance(checker, RulesChecker):
             # extract action, context, resource and subject from inquiry
@@ -106,29 +110,29 @@ class DjangoStorage(Storage):
                     match_policies_uids.append(dbpolicy.uid)
 
             # filter queryset using Q object list
-            qs = DjPolicy.objects.filter(uid__in=match_policies_uids)
+            qs = self.djpolicy.objects.filter(uid__in=match_policies_uids)
 
         return [ DjangoStorage.__prepare_from_djmodel(djpol) for djpol in qs ]
 
     def update(self, policy):
         # we could store directly the djpolicy either way
-        dbpolicy = DjPolicy.objects.get(uid=policy.uid)
-        djpolicy = DjangoStorage.__prepare_djmodel(policy)
+        dbpolicy = self.djpolicy.objects.get(uid=policy.uid)
+        djpolicy = DjangoStorage.__prepare_djmodel(policy, self.djpolicy)
         dbpolicy.doc = djpolicy.doc
         dbpolicy.save()
         log.info('Updated Policy with UID=%s. New value is: %s', policy.uid, policy)
 
     def delete(self, uid):
-        dbpolicy = DjPolicy.objects.get(uid=uid)
+        dbpolicy = self.djpolicy.objects.get(uid=uid)
         dbpolicy.delete()
         log.info('Policy with UID %s was deleted', uid)
 
     @staticmethod
-    def __prepare_djmodel(policy):
+    def __prepare_djmodel(policy, djpolicy):
         """
         Prepare Policy object as a document for insertion.
         """
-        djpolicy = DjPolicy(uid=policy.uid, doc=policy.to_json())
+        djpolicy = djpolicy(uid=policy.uid, doc=policy.to_json())
 
         return djpolicy
 
