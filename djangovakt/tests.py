@@ -7,7 +7,7 @@ import uuid
 from django.core.exceptions import ObjectDoesNotExist
 from django.test import TestCase
 from pprint import pformat
-from vakt import Policy, Inquiry, Guard, RulesChecker, ALLOW_ACCESS
+from vakt import Policy, Inquiry, Guard, RulesChecker, ALLOW_ACCESS, DENY_ACCESS
 from vakt.exceptions import PolicyExistsError
 from vakt.rules import CIDR, Any, Eq, NotEq, In, StartsWith, RegexMatch
 
@@ -24,7 +24,8 @@ class PolicyTests(TestCase):
             uuid.uuid4(),
             actions=[Eq('get'), Eq('list'), Eq('read')],
             resources=[StartsWith('repos/google/tensor')],
-            subjects=[Any()],
+            subjects=[{'name': Any(), 'role': Any()}],
+            context={ 'module': Eq('Test') },
             effect=ALLOW_ACCESS,
             description='Grant read-access for all Google repositories starting with "tensor" to any User'
         )
@@ -32,10 +33,11 @@ class PolicyTests(TestCase):
         self.policy2 = Policy(
             uuid.uuid4(),
             actions=[In('delete', 'prune', 'exterminate')],
-            resources=[RegexMatch(r'repos\/.*?\/.*?')],
-            subjects=[{'name': Any(), 'role': Eq('admin')}, {'name': Eq('defunkt')}, Eq('defunkt')],
+            resources=[StartsWith('repos/')],
+            subjects=[{'name': Any(), 'role': Eq('admin')}],
+            context={ 'module': Eq('Test') },
             effect=ALLOW_ACCESS,
-            description='Grant delete-access for any repository to any User with "admin" role, or to a User named defunkt'
+            description='Grant admin access'
         )
 
     def test_crud(self):
@@ -74,7 +76,7 @@ class PolicyTests(TestCase):
             resources=[{'category': Eq('administration'), 'sub': In('panel', 'switch')}],
             subjects=[{'name': Any(), 'role': NotEq('developer')}],
             effect=ALLOW_ACCESS,
-            context={'ip': CIDR('127.0.0.1/32')},
+            context={ 'module': Eq('Test') },
             description="""
             Allow access to administration interface subcategories: 'panel', 'switch' if user is not
             a developer and came from local IP address.
@@ -97,6 +99,22 @@ class PolicyTests(TestCase):
             "The returned list should match"
 
         ## Find for inquiry
-        inquiry1 = Inquiry(action='read', resource='repos/google/tensorflow', subject='Max')
+        # check a matching policy
+        inquiry1 = Inquiry(
+            action='get',
+            resource='repos/foo/bar',
+            subject={ 'name': 'Jane', 'role': 'admin'},
+            context={'module': 'Test'}
+        )
         matching_policies = self.storage.find_for_inquiry(inquiry1, self.guard.checker)
+        assert matching_policies, "The matching policies list should be empty"
+
+        # check it doesn't match and inquiry
+        inquiry2 = Inquiry(
+            action='delete',
+            resource='repos/google/tensorflow',
+            subject={ 'name': 'Max', 'role': 'developer'},
+            context={'module': 'Test'}
+        )
+        matching_policies = self.storage.find_for_inquiry(inquiry2, self.guard.checker)
         assert not matching_policies, "The matching policies list should be empty"

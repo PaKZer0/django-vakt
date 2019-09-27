@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 __author__ = 'ffuentes'
 
-import threading
-import logging
-import vakt.rules
-
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from djangovakt.models import Policy as DjPolicy
 from vakt import Policy, RulesChecker
 from vakt.storage.abc import Storage
 from vakt.exceptions import PolicyExistsError
+
+import jsonpickle
+import logging
+import threading
+import vakt.rules
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class DjangoStorage(Storage):
             raise PolicyExistsError(policy.uid)
 
         # add policy
-        djpolicy = DjangoStorage.__prepare_djmodel(policy)
+        djpolicy = DjangoStorage.__prepare_djmodel(policy, self.djpolicy)
         djpolicy.save()
 
         log.info('Added Policy: %s', policy)
@@ -71,40 +72,16 @@ class DjangoStorage(Storage):
             match_policies_uids = []
 
             for dbpolicy in self.get_all():
-                resource = dbpolicy.resource
                 actions = dbpolicy.actions
-                subject = dbpolicy.subject
-                context = dbpolicy.context
 
-                insert_uid = True
-
-                # filter subject
-                if insert_uid:
-                    for rule in subject:
-                        # if one of the rules doesn't fit remove uuid from matching_policies
-                        if not rule.satisfied(inquiry_subject):
-                            insert_uid = False
-
-                # filter resource
-                if insert_uid:
-                    for rule in resource:
-                        # if one of the rules doesn't fit remove uuid from matching_policies
-                        if not rule.satisfied(inquiry_resource):
-                            insert_uid = False
+                insert_uid = False
 
                 # filter actions
-                if insert_uid:
+                if actions:
                     for rule in actions:
                         # if one of the rules doesn't fit remove uuid from matching_policies
-                        if not rule.satisfied(inquiry_action):
-                            insert_uid = False
-
-                # filter context
-                if insert_uid:
-                    for rule in context:
-                        # if one of the rules doesn't fit remove uuid from matching_policies
-                        if not rule.satisfied(inquiry_context):
-                            insert_uid = False
+                        if rule.satisfied(inquiry_action):
+                            insert_uid = True
 
                 if insert_uid:
                     match_policies_uids.append(dbpolicy.uid)
@@ -141,4 +118,13 @@ class DjangoStorage(Storage):
         """
         Prepare Policy object as a return from a JSONField.
         """
-        return Policy.from_json(djmodel.doc)
+        # parse first with jsonpickl then let the Policy static method parse it
+        # because django stores the json inside a string
+        json_str = None
+        try:
+            json_str = jsonpickle.decode(djmodel.doc)
+        except ValueError as err:
+            log.exception('Error creating Policy from json.', cls.__name__)
+            raise err
+
+        return Policy.from_json(json_str)
