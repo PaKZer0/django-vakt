@@ -74,6 +74,13 @@ class DjangoStorage(Storage):
 
                 insert_uid = True
 
+                # filter subject
+                if insert_uid:
+                    for rule in subject:
+                        # if one of the rules doesn't fit remove uuid from matching_policies
+                        if not rule.satisfied(inquiry_subject):
+                            insert_uid = False
+
                 # filter resource
                 if insert_uid:
                     for rule in resource:
@@ -88,14 +95,7 @@ class DjangoStorage(Storage):
                         if not rule.satisfied(inquiry_action):
                             insert_uid = False
 
-                # filter actions
-                if insert_uid:
-                    for rule in subject:
-                        # if one of the rules doesn't fit remove uuid from matching_policies
-                        if not rule.satisfied(inquiry_subject):
-                            insert_uid = False
-
-                # filter actions
+                # filter context
                 if insert_uid:
                     for rule in context:
                         # if one of the rules doesn't fit remove uuid from matching_policies
