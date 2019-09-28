@@ -9,7 +9,7 @@ from django.test import TestCase
 from pprint import pformat
 from vakt import Policy, Inquiry, Guard, RulesChecker, ALLOW_ACCESS, DENY_ACCESS
 from vakt.exceptions import PolicyExistsError
-from vakt.rules import CIDR, Any, Eq, NotEq, In, StartsWith, RegexMatch
+import vakt.rules as vrules
 
 from .models import Policy as DjPolicy
 from .storage import DjangoStorage
@@ -20,27 +20,28 @@ class PolicyTests(TestCase):
         self.storage = DjangoStorage()
         self.guard = Guard(self.storage, RulesChecker())
 
+    def test_crud(self):
+        # create policies
         self.policy1 = Policy(
             uuid.uuid4(),
-            actions=[Eq('get'), Eq('list'), Eq('read')],
-            resources=[StartsWith('repos/google/tensor')],
-            subjects=[{'name': Any(), 'role': Any()}],
-            context={ 'module': Eq('Test') },
+            actions=[vrules.Eq('get'), vrules.Eq('list'), vrules.Eq('read')],
+            resources=[vrules.StartsWith('repos/google/tensor')],
+            subjects=[{'name': vrules.Any(), 'role': vrules.Any()}],
+            context={ 'module': vrules.Eq('Test') },
             effect=ALLOW_ACCESS,
             description='Grant read-access for all Google repositories starting with "tensor" to any User'
         )
 
         self.policy2 = Policy(
             uuid.uuid4(),
-            actions=[In('delete', 'prune', 'exterminate')],
-            resources=[StartsWith('repos/')],
-            subjects=[{'name': Any(), 'role': Eq('admin')}],
-            context={ 'module': Eq('Test') },
+            actions=[vrules.In('delete', 'prune', 'exterminate')],
+            resources=[vrules.StartsWith('repos/')],
+            subjects=[{'name': vrules.Any(), 'role': vrules.Eq('admin')}],
+            context={ 'module': vrules.Eq('Test') },
             effect=ALLOW_ACCESS,
             description='Grant admin access'
         )
 
-    def test_crud(self):
         ## Create (add)
         self.storage.add(self.policy1)
 
@@ -72,11 +73,11 @@ class PolicyTests(TestCase):
         ## Update
         policy1b = Policy(
             self.policy1.uid,
-            actions=[Eq('get'), Eq('list')],
-            resources=[{'category': Eq('administration'), 'sub': In('panel', 'switch')}],
-            subjects=[{'name': Any(), 'role': NotEq('developer')}],
+            actions=[vrules.Eq('get'), vrules.Eq('list')],
+            resources=[{'category': vrules.Eq('administration'), 'sub': vrules.In('panel', 'switch')}],
+            subjects=[{'name': vrules.Any(), 'role': vrules.NotEq('developer')}],
             effect=ALLOW_ACCESS,
-            context={ 'module': Eq('Test') },
+            context={ 'module': vrules.Eq('Test') },
             description="""
             Allow access to administration interface subcategories: 'panel', 'switch' if user is not
             a developer and came from local IP address.
@@ -118,3 +119,74 @@ class PolicyTests(TestCase):
         )
         matching_policies = self.storage.find_for_inquiry(inquiry2, self.guard.checker)
         assert not matching_policies, "The matching policies list should be empty"
+
+    def test_rulechecker(self):
+        # ensure empty policy set
+        for dbpolicy in self.storage.get_all():
+            self.storage.delete(dbpolicy.uid)
+
+        # add policies
+        policy1 = Policy(
+            uuid.uuid4(),
+            actions=[vrules.Eq('read')],
+            resources=[vrules.StartsWith('forum/')],
+            subjects=[{ 'group': vrules.In('can_read', 'can_write', 'can_admin') }],
+            context={ 'module': vrules.Eq('forum') },
+            effect=ALLOW_ACCESS,
+            description='Grant read-access to the forum section to users with a certain profile'
+        )
+
+        policy2 = Policy(
+            uuid.uuid4(),
+            actions=[vrules.Eq('write')],
+            resources=[vrules.StartsWith('forum/')],
+            subjects=[{ 'group': vrules.In('can_write', 'can_admin') }],
+            context={ 'module': vrules.Eq('forum') },
+            effect=ALLOW_ACCESS,
+            description='Grant write-access to the forum section to users with a certain profile'
+        )
+
+        policy3 = Policy(
+            uuid.uuid4(),
+            actions=[vrules.Eq('admin')],
+            resources=[vrules.StartsWith('forum/')],
+            subjects=[{ 'group': vrules.In('can_admin') }],
+            context={ 'module': vrules.Eq('forum') },
+            effect=ALLOW_ACCESS,
+            description='Grant admin-access to the forum section to users with a certain profile'
+        )
+
+        policy4 = Policy(
+            uuid.uuid4(),
+            actions=[vrules.Any()],
+            resources=[vrules.StartsWith('forum/')],
+            subjects=[{ 'group': vrules.NotIn('can_read', 'can_write', 'can_admin') }],
+            context={ 'module': vrules.Eq('forum') },
+            effect=DENY_ACCESS,
+            description='Deny access to any user without a group defined'
+        )
+
+
+        self.storage.add(policy1)
+        self.storage.add(policy2)
+        self.storage.add(policy3)
+        self.storage.add(policy4)
+
+        # forge successful inquiry for 1st policy
+        inqu1_ok = Inquiry(
+            action='read',
+            resource='forum/users/list',
+            subject={ 'name': 'Jane', 'group': 'can_read'},
+            context={'module': 'forum'}
+        )
+
+        assert self.guard.is_allowed(inqu1_ok), "This inquiry should be allowed"
+
+        inq1_ko = Inquiry(
+            action='read',
+            resource='forum/users/list',
+            subject={ 'name': 'James', 'group': 'new_users'},
+            context={'module': 'forum'}
+        )
+
+        assert not self.guard.is_allowed(inq1_ko), "This inquiry should be denied"
