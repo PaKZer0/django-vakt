@@ -35,7 +35,7 @@ class DjangoStorage(Storage):
         djpolicy = DjangoStorage.__prepare_djmodel(policy, self.djpolicy)
         djpolicy.save()
 
-        log.info('Added Policy: %s', policy)
+        log.info('Added Policy: %s \n', policy)
 
     def get(self, uid):
         try:
@@ -97,12 +97,12 @@ class DjangoStorage(Storage):
         djpolicy = DjangoStorage.__prepare_djmodel(policy, self.djpolicy)
         dbpolicy.doc = djpolicy.doc
         dbpolicy.save()
-        log.info('Updated Policy with UID=%s. New value is: %s', policy.uid, policy)
+        log.info('Updated Policy with UID=%s. New value is: %s\n', policy.uid, policy)
 
     def delete(self, uid):
         dbpolicy = self.djpolicy.objects.get(uid=uid)
         dbpolicy.delete()
-        log.info('Policy with UID %s was deleted', uid)
+        log.info('Deleted Policy with UID %s\n', uid)
 
     @staticmethod
     def __prepare_djmodel(policy, djpolicy):
