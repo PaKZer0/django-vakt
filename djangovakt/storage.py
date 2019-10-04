@@ -54,8 +54,9 @@ class DjangoStorage(Storage):
             limit = count
 
         qs = self.djpolicy.objects.all()[offset:offset+limit]
-
-        return [ DjangoStorage.__prepare_from_djmodel(djpol) for djpol in qs ]
+        all_policies = [ DjangoStorage.__prepare_from_djmodel(djpol) for djpol in qs ]
+        log.debug('Get all policies: {}\n'.format(all_policies))
+        return all_policies
 
     def find_for_inquiry(self, inquiry, checker=None):
         # worst case return all

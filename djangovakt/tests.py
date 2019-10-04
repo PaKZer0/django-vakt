@@ -21,6 +21,9 @@ class PolicyTests(TestCase):
         self.guard = Guard(self.storage, RulesChecker())
 
     def test_crud(self):
+        for dbpolicy in self.storage.get_all():
+            self.storage.delete(dbpolicy.uid)
+
         # create policies
         self.policy1 = Policy(
             uuid.uuid4(),
