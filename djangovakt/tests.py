@@ -27,7 +27,7 @@ class PolicyTests(TestCase):
         # create policies
         self.policy1 = Policy(
             uuid.uuid4(),
-            actions=[vrules.Eq('get'), vrules.Eq('list'), vrules.Eq('read')],
+            actions=[vrules.In('get', 'list', 'read')],
             resources=[vrules.StartsWith('repos/google/tensor')],
             subjects=[{'name': vrules.Any(), 'role': vrules.Any()}],
             context={ 'module': vrules.Eq('Test') },
@@ -76,7 +76,7 @@ class PolicyTests(TestCase):
         ## Update
         policy1b = Policy(
             self.policy1.uid,
-            actions=[vrules.Eq('get'), vrules.Eq('list')],
+            actions=[vrules.In('get', 'list')],
             resources=[{'category': vrules.Eq('administration'), 'sub': vrules.In('panel', 'switch')}],
             subjects=[{'name': vrules.Any(), 'role': vrules.NotEq('developer')}],
             effect=ALLOW_ACCESS,
@@ -106,12 +106,12 @@ class PolicyTests(TestCase):
         # check a matching policy
         inquiry1 = Inquiry(
             action='get',
-            resource='repos/foo/bar',
+            resource='repos/google/tensorflow',
             subject={ 'name': 'Jane', 'role': 'admin'},
             context={'module': 'Test'}
         )
         matching_policies = self.storage.find_for_inquiry(inquiry1, self.guard.checker)
-        assert matching_policies, "The matching policies list should be empty"
+        assert matching_policies, "The matching policies list should not be empty"
 
         # check it doesn't match and inquiry
         inquiry2 = Inquiry(
