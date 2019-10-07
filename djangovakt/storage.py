@@ -8,7 +8,7 @@ from vakt import Policy, RulesChecker
 from vakt.storage.abc import Storage
 from vakt.exceptions import PolicyExistsError
 
-import jsonpickle
+import json
 import logging
 import threading
 import vakt.rules
@@ -125,7 +125,8 @@ class DjangoStorage(Storage):
         """
         Prepare Policy object as a document for insertion.
         """
-        djpolicy = djpolicy(uid=policy.uid, doc=policy.to_json())
+        policy_jstring = policy.to_json()
+        djpolicy = djpolicy(uid=policy.uid, doc=json.loads(policy_jstring))
 
         return djpolicy
 
@@ -134,13 +135,5 @@ class DjangoStorage(Storage):
         """
         Prepare Policy object as a return from a JSONField.
         """
-        # parse first with jsonpickl then let the Policy static method parse it
-        # because django stores the json inside a string
-        json_str = None
-        try:
-            json_str = jsonpickle.decode(djmodel.doc)
-        except ValueError as err:
-            log.exception('Error creating Policy from json.', cls.__name__)
-            raise err
 
-        return Policy.from_json(json_str)
+        return Policy.from_json(djmodel.doc)
