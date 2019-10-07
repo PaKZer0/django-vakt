@@ -68,37 +68,10 @@ class DjangoStorage(Storage):
             inquiry_action = inquiry.action
             inquiry_subject = inquiry.subject
             inquiry_context = inquiry.context
-
-            # extract all action rules in dictionary with policy uuid
-            match_policies_uids = []
-
-            for dbpolicy in self.get_all():
-                actions = dbpolicy.actions
-                context = dbpolicy.context
-
-                insert_uid = True
-
-                # filter actions
-                if actions:
-                    for rule in actions:
-                        log.debug('Checking rule: {}'.format(rule))
-                        log.debug('With value: {}'.format(inquiry_action))
-                        # if one of the rules doesn't fit remove uuid from matching_policies
-                        if not rule.satisfied(inquiry_action):
-                            insert_uid = False
-                            break
-
-                if context:
-                    for attr_name, attr_rule in context.items():
-                        if not attr_rule.satisfied(inquiry_context[attr_name]):
-                            insert_uid = False
-                            break
-
-                if insert_uid:
-                    match_policies_uids.append(dbpolicy.uid)
-
-            # filter queryset using Q object list
-            qs = self.djpolicy.objects.filter(uid__in=match_policies_uids)
+            
+            # filter by action name
+            qs = qs.filter(doc__actions__0__val=inquiry_action)
+            qs = qs.filter(doc__context__module__elem__in=inquiry_context['module'])
 
         policies = [ DjangoStorage.__prepare_from_djmodel(djpol) for djpol in qs ]
         log.debug('Find for inquiry: {}\n Return matching policies: {}\n'.format(
