@@ -24,7 +24,7 @@ setup(
         'Framework :: Django',
         'Framework :: Django :: 1.11',  # replace "X.Y" as appropriate
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: Apache 2.0 license',  # example license
+        'License :: OSI Approved :: Apache Software License',  # example license
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3.5',
