@@ -2,7 +2,7 @@ sudo: required
 language: python
 
 python:
-  - 3.8
+  - 3.7
 
 services:
   - postgresql
@@ -17,7 +17,7 @@ install:
   - cd mysite/
   - python manage.py startapp myapp
   - rm mysite/settings.py
-  - cp ../../travis-djangovakt_settings.py mysite/settings.py
+  - cp ../travis-djangovakt_settings.py mysite/settings.py
 
 before_script:
   - psql -c "CREATE DATABASE mysite;" -U postgres
