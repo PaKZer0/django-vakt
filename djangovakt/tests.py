@@ -19,6 +19,7 @@ class PolicyTests(TestCase):
     def setUp(self):
         self.storage = DjangoStorage()
         self.guard = Guard(self.storage, RulesChecker())
+        self.storage.delete_all()
 
     def test_crud(self):
         for dbpolicy in self.storage.get_all():

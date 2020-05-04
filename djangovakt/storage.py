@@ -93,12 +93,23 @@ class DjangoStorage(Storage):
         dbpolicy.delete()
         log.info('Deleted Policy with UID %s\n', uid)
 
+    def delete_all(self):
+        dbpolicy = self.djpolicy.objects.all().delete()
+        log.info('Deleted all Policies\n')
+
     @staticmethod
     def __prepare_djmodel(policy, djpolicy):
         """
         Prepare Policy object as a document for insertion.
         """
-        policy_jstring = policy.to_json()
+        policy_jstring = None
+        try:
+            policy_jstring = policy.to_json()
+        except TypeError:
+            policy_doc = json.dumps(policy.doc)
+            policy.doc = policy_doc
+            policy_jstring = policy.to_json()
+
         djpolicy = djpolicy(uid=policy.uid, doc=policy_jstring)
 
         return djpolicy
@@ -108,5 +119,14 @@ class DjangoStorage(Storage):
         """
         Prepare Policy object as a return from a JSONField.
         """
+        doc = djmodel.doc
+        jdoc = json.loads(doc)
 
-        return Policy.from_json(djmodel.doc)
+        ret = None
+
+        try:
+            ret = Policy.from_json(doc)
+        except TypeError:
+            ret = Policy.from_json(jdoc)
+
+        return ret
