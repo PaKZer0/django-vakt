@@ -1,0 +1,30 @@
+sudo: required
+language: python
+
+python:
+  - 3.7
+
+services:
+  - postgresql
+
+env:
+  - DJANGO_VERSION=latest
+
+install:
+  - pip install wheel Django vakt psycopg2-binary
+  - pip install ./
+  - django-admin startproject mysite
+  - cd mysite/
+  - python manage.py startapp myapp
+  - rm mysite/settings.py
+  - cp ../../travis-djangovakt_settings.py mysite/settings.py
+
+before_script:
+  - psql -c "CREATE DATABASE mysite;" -U postgres
+  - psql -c "CREATE USER myuser PASSWORD 'docker';" -U postgres
+  - psql -c "ALTER USER myuser CREATEDB;" -U postgres
+  - psql -c "GRANT ALL PRIVILEGES on DATABASE mysite to myuser;" -U postgres
+  - sleep 3 # give xvfb some time to start
+
+script:
+  - python manage.py test djangovakt.tests
