@@ -83,8 +83,8 @@ class DjangoStorage(Storage):
     def update(self, policy):
         # we could store directly the djpolicy either way
         dbpolicy = self.djpolicy.objects.get(uid=policy.uid)
-        djpolicy = DjangoStorage.__prepare_djmodel(policy, self.djpolicy)
-        dbpolicy.doc = djpolicy.doc
+        newdjpolicy = DjangoStorage.__prepare_djmodel(policy, self.djpolicy)
+        dbpolicy.doc = newdjpolicy.doc
         dbpolicy.save()
         log.info('Updated Policy with UID=%s. New value is: %s\n', policy.uid, policy)
 
@@ -99,7 +99,7 @@ class DjangoStorage(Storage):
         Prepare Policy object as a document for insertion.
         """
         policy_jstring = policy.to_json()
-        djpolicy = djpolicy(uid=policy.uid, doc=json.loads(policy_jstring))
+        djpolicy = djpolicy(uid=policy.uid, doc=policy_jstring)
 
         return djpolicy
 
